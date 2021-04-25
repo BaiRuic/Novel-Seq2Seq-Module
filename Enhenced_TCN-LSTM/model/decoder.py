@@ -41,6 +41,7 @@ if __name__ == "__main__":
     features = 2
     # 测试输入 (batch_size, time_step, features) 是否可行
     x = torch.rand(size=(batch_size, time_step, features))
+    x = x
     x = x.permute(0, 2, 1)
     encoder = TcnEncoder(num_inputs=features,
                             num_channels=[4,6,5],
@@ -54,5 +55,5 @@ if __name__ == "__main__":
 
     decoder_input = x[:, 0, -1].reshape(batch_size, 1, 1)
     pred, hidden = decoder(decoder_input, prev_hidden)
-    print(pred.shape, hidden.shape)
+    print(pred.shape,  hidden.shape)
 
