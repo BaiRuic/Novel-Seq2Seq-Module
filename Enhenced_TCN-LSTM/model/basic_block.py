@@ -1,35 +1,40 @@
+# Enhenced Seq2Seq Basic block
+# input:x: shape [batch_size, time_steps, features] 在Basic Block的forward 已经进行了 x = x.permute(0, 2,1)处理了
+# output: predict: [batch_size, pred_seqlen, 1]
+#         estimate: [batch_size, input_seqlen, 1]
+
 import torch
 import torch.nn as nn
-from torch.nn.utils import weight_norm
-from encoder import TcnEncoder
-from decoder import  GruDecoder
+from .encoder  import TcnEncoder
+from .decoder import GruDecoder
 
 
 class BasicBlock(nn.Module):
-    def __init__(self, input_size, hidden_size, forecast_seqlen, estimate_seqlen, kernel_size=3):
-        '''
+    def __init__(self, input_size, encoder_num_channels, forecast_seqlen, estimate_seqlen, kernel_size=4):
+        """
         input_size: 输出序列数据的样本特征
-        hidden_size: 隐藏层样本特征
+        encoder_num_channels: [List[int]]编码器的每个残差块的卷积维度
         predice_seqlen: 预测的时间步
         estimate_seqlen: 估计的时间步，即输入样本的时间步
-        '''
+        """
         super(BasicBlock, self).__init__()
         self.input_size = input_size
-        self.hidden_size = hidden_size
+        self.encoder_num_channels = encoder_num_channels
+        self.hidden_size = encoder_num_channels[-1]
         self.kernel_size = kernel_size
 
         self.forecast_seqlen = forecast_seqlen
         self.estimate_seqlen = estimate_seqlen
 
-        self.encoder = TcnEncoder(num_inputs=self.input_size, num_channels=[self.hidden_size],
+        self.encoder = TcnEncoder(num_inputs=self.input_size, num_channels=self.encoder_num_channels,
                                   kernel_size=self.kernel_size)
         self.f_decoder = GruDecoder(input_size=1, hidden_size=self.hidden_size, output_size=1)
         self.e_decoder = GruDecoder(input_size=1, hidden_size=self.hidden_size, output_size=1)
 
     def forward(self, inputs):
-        '''
+        """
         inputs: [batch_size, seq_len, features]
-        '''
+        """
         # from [batch_size, seq_len, features]  to   [batch_size, features, seq_len]
         inputs = inputs.permute(0, 2, 1)
 
@@ -38,7 +43,6 @@ class BasicBlock(nn.Module):
         # 对输入进行编码 得到编码状态
         hidden = self.encoder(inputs)
         hidden.contiguous()
-
 
         assert (hidden.shape == (1, batch_size, self.hidden_size))
 
@@ -87,24 +91,14 @@ class BasicBlock(nn.Module):
 if __name__ == "__main__":
 
     batch_size = 128
-    time_step = 14
-    features = 2
+    time_step = 24
+    features = 3
+    num_channels = [4, 6, 8, 12]
     # 测试输入 (batch_size, time_step, features) 是否可行
     x = torch.rand(size=(batch_size, time_step, features))
-
-    '''
-    encoder = TcnEncoder(num_inputs=features, 
-                            num_channels=[4,6,5],
-                            kernel_size=3,
-                            dropout=0.5)
-    prev_hidden = encoder(x)
-
-  
-    decoder = GruDecoder(input_size=1, hidden_size=5)
-
-    decoder_input = x[:, 0, -1].reshape(batch_size, 1, 1)
-    pred, hidden = decoder(decoder_input, prev_hidden)
-    '''
-    model = BasicBlock(input_size=2, hidden_size=5, forecast_seqlen=7, estimate_seqlen=14)
-    y, _ = model(x)
-    print(y.shape)
+    model = BasicBlock(input_size=features, encoder_num_channels=num_channels, forecast_seqlen=6, estimate_seqlen=24)
+    model_ = BasicBlock(input_size=1, encoder_num_channels=num_channels, forecast_seqlen=6, estimate_seqlen=24)
+    p, e = model(x)
+    p_, e_ = model_(e)
+    print(p.shape, e.shape)
+    print(p_.shape, e_.shape)

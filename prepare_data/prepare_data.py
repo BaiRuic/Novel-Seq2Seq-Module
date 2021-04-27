@@ -6,6 +6,8 @@ from sklearn import preprocessing
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 torch.set_default_tensor_type('torch.DoubleTensor')
 
+import os
+print(os.getcwd())
 
 
 class DataPrepare:
@@ -19,10 +21,10 @@ class DataPrepare:
             test_io,test_op
     '''
 
-    def __init__(self, datafile, input_steps=12, pred_horizion=6, split_ratio=[0.75, 0.15, 0.10]):
+    def __init__(self, datapath = '.\\prepare_data\\data', datafile='AT', input_steps=12, pred_horizion=6, split_ratio=[0.75, 0.15, 0.10]):
 
         if datafile in ['AT', 'CH', 'DE', 'NL', 'PL']:
-            self.data = pd.read_csv('.\\data\\' + datafile + '_data.csv', header=0, index_col=0)
+            self.data = pd.read_csv(datapath + '\\' + datafile + '_data.csv', header=0, index_col=0)
         else:
             raise Exception("The parameter 'datafile' is wrong")
         # 该数据集的基本属性
@@ -90,21 +92,24 @@ class DataPrepare:
         # 先将输入输出分开
         inputs = reframed_data.values[:, :-self.pred_horizion]  # 输入
         targets = reframed_data.values[:, -self.pred_horizion:]  # 输出
+        print(inputs.shape)
+        print(targets.shape)
 
         num_examples = inputs.shape[0]
         # 设置各数据集大小
         train_size = int(num_examples * self.split_ratio[0])
         valid_size = int(num_examples * self.split_ratio[1])
+        test_size = int(num_examples * self.split_ratio[2])
 
         # 将训练集输入[sample_num, time_steps*features] reshape 为 [sample_num, time_steps, features]
         train_ip, train_op = inputs[:train_size, :], targets[: train_size, :]
         train_ip = train_ip.reshape(train_ip.shape[0], self.input_steps, self.features)
 
-        valid_ip, valid_op = inputs[train_size: train_size + valid_size, :], targets[
-                                                                             train_size: train_size + valid_size, :]
+        valid_ip, valid_op = inputs[train_size: train_size + valid_size, :], targets[train_size: train_size + valid_size, :]
         valid_ip = valid_ip.reshape(valid_ip.shape[0], self.input_steps, self.features)
 
-        test_ip, test_op = inputs[train_size + valid_size:, :], targets[train_size + valid_size:, :]
+        test_ip, test_op = inputs[train_size + valid_size:train_size + valid_size + test_size , :], \
+                           targets[train_size + valid_size:train_size + valid_size + test_size, :]
         test_ip = test_ip.reshape(test_ip.shape[0], self.input_steps, self.features)
 
         return (train_ip, train_op, valid_ip, valid_op, test_ip, test_op)
@@ -137,7 +142,10 @@ class Datasets(torch.utils.data.Dataset):
 
 
 if __name__ == '__main__':
-    Data = DataPrepare('AT')
+    Data = DataPrepare(datafile='AT',input_steps=12, pred_horizion=6)
+
     temp = Data.prepare_data()   # temp (train_ip, train_op, valid_ip, valid_op, test_ip, test_op)
-    train_dataset = Datasets(temp[0], temp[1])
-    print(train_dataset[0][1].shape)
+    train_dataset = Datasets(temp[0], temp[1]) # 训练集生成器
+    for x,y in train_dataset:
+        print(x.shape, y.shape)   # 每个样本的维度
+        break
