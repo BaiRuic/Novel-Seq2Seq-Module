@@ -48,7 +48,7 @@ if __name__ == "__main__":
     x = x.permute(0, 2, 1)
     encoder = TcnEncoder(num_inputs=features,
                         num_channels=[4,6,8,12],
-                        kernel_size=3,
+                        kernel_size=4,
                         dropout=0.5)
     prev_hidden = encoder(x)  # shape(1, batch_size, 12)
 

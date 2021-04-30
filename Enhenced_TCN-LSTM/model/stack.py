@@ -9,7 +9,7 @@ DEVICE = torch.device('cuda' if torch.cuda.is_available() else "cpu")
 
 class Stack(nn.Module):
     def __init__(self, input_size: int = 3,
-                 encoder_channels: Vector = [4, 6, 8, 12],
+                 encoder_channels: Vector = [4, 6, 4],
                  input_seqlen: int = 24,
                  forecast_seqlen: int = 6):
         super(Stack, self).__init__()
@@ -60,7 +60,7 @@ class Stack(nn.Module):
         forecast_, x_ = self.block_2(inputs)
         forecast += forecast_
         inputs = x_
-
+        '''
         forecast_, x_ = self.block_3(inputs)
         forecast += forecast_
         inputs = x_
@@ -68,7 +68,7 @@ class Stack(nn.Module):
         forecast_, x_ = self.block_4(inputs)
         forecast += forecast_
         inputs = x_
-
+        '''
         return forecast, inputs
 
 

@@ -7,8 +7,6 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 torch.set_default_tensor_type('torch.DoubleTensor')
 
 import os
-print(os.getcwd())
-
 
 class DataPrepare:
     '''1.数据归一化 2.将序列数据转化为监督模型数据 3.数据分割为训练集、测试集和验证集
@@ -80,7 +78,7 @@ class DataPrepare:
         param: x: 待反归一化的数值 type: numpy.ndarray  shape:(n, 1)
         return : 反归一化后的数值 type:numpy.ndarray shape:(n, 1)
         '''
-        return scaler_load.inverse_transform(x)
+        return self.scaler_load.inverse_transform(x)
 
     def _split_data(self, reframed_data):
         '''将reframed后的数据按照 self.split_ratio 进行分割
@@ -92,8 +90,6 @@ class DataPrepare:
         # 先将输入输出分开
         inputs = reframed_data.values[:, :-self.pred_horizion]  # 输入
         targets = reframed_data.values[:, -self.pred_horizion:]  # 输出
-        print(inputs.shape)
-        print(targets.shape)
 
         num_examples = inputs.shape[0]
         # 设置各数据集大小

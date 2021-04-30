@@ -5,20 +5,20 @@ import numpy as np
 import random
 import os
 from prepare_data import prepare_data
-from model import stack
+from model import seq2seq
 from alive_progress import alive_bar
 import matplotlib.pyplot as plt
 
 # 定义超参数
 HyperParams = {'datapath':'..\\prepare_data\\data',      # 数据集路径
                'datafile': 'CH',                         # 数据集文件
-               'split_ratio':[0.6, 0.1, 0.1],         # 数据集分割比例
+               'split_ratio':[0.8, 0.1, 0.1],         # 数据集分割比例
                "batch_size": 2560,
                "N_EPOCHS": 50,
                'lr': 5e-2,
                "features": 3,
-               "input_seqlen": 12,
-               "predict_seqlen": 6
+               "input_seqlen": 24,
+               "predict_seqlen": 3
                }
 
 
@@ -97,6 +97,9 @@ class Train:
         self.optimizer.load_state_dict(torch.load(filename)['optimizer'])
         self.train_loss = torch.load(filename)['train_loss']
         self.valid_loss = torch.load(filename)['valid_loss']
+        self.mse = torch.load(filename)['mse']
+        self.mape = torch.load(filename)['mape']
+
 
     def _train(self):
         """
@@ -114,9 +117,9 @@ class Train:
 
             self.optimizer.zero_grad()
             # 输入到模型的是[batch_size, seq_len, features],模型输出是[batch_size,predict_seqlen, 1]
-            output, residual = self.model(x)  # stack模型输出有两部分，第一部分是预测，第二部分的估计
+            output = self.model(x)  # stack模型输出有两部分，第一部分是预测，第二部分的估计
 
-            loss = self.loss_func(output.squeeze(dim=2), y) + torch.mean(torch.abs(residual))  # 将output [batch_size, predict_seqlen]
+            loss = self.loss_func(output.squeeze(dim=2), y)   # 将output [batch_size, predict_seqlen]
             loss.backward()
             self.optimizer.step()
 
@@ -144,7 +147,7 @@ class Train:
             x = x.to(DEVICE)
             y = y.to(DEVICE)
             with torch.no_grad():
-                output, _ = self.model(x)  # output [batch_size, predict_seqlen, 1]
+                output = self.model(x)  # output [batch_size, predict_seqlen, 1]
                 loss = self.loss_func(output.squeeze(dim=2), y)  # 计算mse
                 mape_loss = self.calcMAPE(output.squeeze(dim=2), y) # 计算该批次的mape
                 epoch_loss += loss.item()
@@ -216,6 +219,7 @@ class Train:
 
                 # 更新进度条
                 bar()
+
     def evaluate_model(self):
         pass
 
@@ -270,7 +274,7 @@ class Train:
         self.model.eval()
         inputs = inputs.to(DEVICE)
         with torch.no_grad():
-            output, _ = self.model(inputs)  # output [batch_size, predict_seqlen, 1]
+            output = self.model(inputs)  # output [batch_size, predict_seqlen, 1]
         return output
 
 
@@ -279,10 +283,11 @@ def main():
     load_model = False
 
     # 模型 优化器 损失函数
-    model = stack.Stack(input_size=HyperParams['features'],
-                        encoder_channels=[4, 6, 8, 12],
-                        input_seqlen=HyperParams['input_seqlen'],
-                        forecast_seqlen=HyperParams['predict_seqlen']).to(DEVICE)
+    model = seq2seq.Seq2Seq(input_size=HyperParams['features'],
+                            hidden_size=6,
+                            input_seqlen=HyperParams['input_seqlen'],
+                            forecast_seqlen=HyperParams['predict_seqlen']).to(DEVICE)
+
     '''
     model = seq2seq.RNN_Seq2Seq(input_size=HyperParams['features'], 
                                 hidden_size=5, 
@@ -291,17 +296,16 @@ def main():
 
     optimizer = torch.optim.Adam(model.parameters(), lr=HyperParams['lr'])
     loss_func = torch.nn.MSELoss(reduction='mean')
-
     T = Train(hyperparams=HyperParams, model=model, optimizer=optimizer, loss_func=loss_func)
     if load_model:
         T.load_state()  # 加载之前训练好的模型
         # T.train_model() # 再训练一次
     else:
-        T.train_model()  # 再训练一次
+        T.train_model()
     T.plot_loss()
     T.show_example()
+    print(f"mape:{T.mape}, mse:{T.mse}")
 
 
 if __name__ == "__main__":
-    main()
     main()
