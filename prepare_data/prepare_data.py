@@ -75,8 +75,8 @@ class DataPrepare:
 
     def un_standardize(self, x):
         '''将预测输出的数值反归一化，使其具有物理意义
-        param: x: 待反归一化的数值 type: numpy.ndarray  shape:(n, 1)
-        return : 反归一化后的数值 type:numpy.ndarray shape:(n, 1)
+        param: x: 待反归一化的数值 type: numpy.ndarray  shape:(n, m)
+        return : 反归一化后的数值 type:numpy.ndarray shape:(n, m)
         '''
         return self.scaler_load.inverse_transform(x)
 

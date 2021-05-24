@@ -6,13 +6,12 @@ from sklearn.model_selection import RandomizedSearchCV
 # 定义超参数
 HyperParams = {'datapath':'..\\prepare_data\\data',      # 数据集路径
                'datafile': 'AT',                         # 数据集文件
-               'split_ratio':[0.3, 0.05, 0.05],         # 数据集分割比例
+               'split_ratio':[0.05, 0.01, 0.01],         # 数据集分割比例
                "features": 3,
-               "input_seqlen": 24,
-               "pred_seqlen": 3
+               "input_seqlen": 12,
+               "pred_seqlen": 6
                }
-# 保存模型指标的文件名
-filename = f"RF_{HyperParams['datafile']}-{HyperParams['input_seqlen']} to {HyperParams['pred_seqlen']}"
+
 
 # 构建多步预测模型
 def multi_step_pred(model, input_timestep, pred_horizion, test_ip):
@@ -107,6 +106,8 @@ def main():
 
     my_metrics.print_metrics()
 
+    # 保存模型指标的文件名
+    filename = f"RF_{HyperParams['datafile']}-{HyperParams['input_seqlen']} to {HyperParams['pred_seqlen']}"
     # 将模型指标保存下来
     np.save(filename, my_metrics.metrics)
 
@@ -118,6 +119,14 @@ if __name__ == "__main__":
         for key, values in temp_dict.item().items():
             print(f"The {key} is:{values}.")
     else:
-        main()
+        # 遍历所有可能
+        for in_s in [12, 24]:
+            for address in ['CH','DE', 'AT']:
+                for ps in [3, 6, 12, 24]:
+                    HyperParams['input_seqlen'] = in_s
+                    HyperParams['datafile'] = address
+                    HyperParams["pred_seqlen"] = ps
+                    main()
+
 
 

@@ -9,7 +9,7 @@ DEVICE = torch.device('cuda' if torch.cuda.is_available() else "cpu")
 
 class Stack(nn.Module):
     def __init__(self, input_size: int = 3,
-                 encoder_channels: Vector = [4, 6, 4],
+                 encoder_channels: Vector = [4, 6],
                  input_seqlen: int = 24,
                  forecast_seqlen: int = 6):
         super(Stack, self).__init__()
@@ -28,7 +28,7 @@ class Stack(nn.Module):
                                   encoder_num_channels=self.encoder_channels,
                                   forecast_seqlen=self.forecast_seqlen,
                                   estimate_seqlen=self.estimate_seqlen)
-
+        '''
         self.block_3 = BasicBlock(input_size=1,
                                   encoder_num_channels=self.encoder_channels,
                                   forecast_seqlen=self.forecast_seqlen,
@@ -38,7 +38,7 @@ class Stack(nn.Module):
                                   encoder_num_channels=self.encoder_channels,
                                   forecast_seqlen=self.forecast_seqlen,
                                   estimate_seqlen=self.estimate_seqlen)
-
+        '''
 
     def forward(self, inputs):
         '''

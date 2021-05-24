@@ -10,7 +10,7 @@ from .decoder import GruDecoder
 
 
 class BasicBlock(nn.Module):
-    def __init__(self, input_size, encoder_num_channels, forecast_seqlen, estimate_seqlen, kernel_size=4):
+    def __init__(self, input_size, encoder_num_channels, forecast_seqlen, estimate_seqlen, kernel_size=5):
         """
         input_size: 输出序列数据的样本特征
         encoder_num_channels: [List[int]]编码器的每个残差块的卷积维度

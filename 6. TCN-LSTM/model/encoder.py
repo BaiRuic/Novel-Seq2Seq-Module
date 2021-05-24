@@ -1,6 +1,6 @@
-# TCN-lstm  Encoder,即TCN的残差块
+# BasicBlock Encoder,即TCN的残差块
 # 输入: x shape:(batch_size, features, timesteps)
-# 输出 y [1, features, 1] 做为上下文向量
+# 输出 y [1, batch_size, features] 做为上下文向量
 # 参数建议：num_inputs = 3, num_channels = [4, 6, 8, 12], kernel_size=4, dropout=0.5
 # 一维卷积是在 (batch_size, features, time_step) 的 time_step 维度上进行卷积的
 
@@ -109,6 +109,7 @@ class TcnEncoder(nn.Module):
         '''
         # output shape:[batch, output_channel, seq_len]
         output = self.network(x)
+        # from [batch, output_channel, seq_len] to [1, batch_size, feature]
         return output[:, :, -1].unsqueeze(dim=0).contiguous()
 
 
@@ -136,8 +137,8 @@ if __name__ == "__main__":
     # 测试 TcnBlock
 
     model11 = TcnEncoder(num_inputs=features,
-                       num_channels=[4, 6, 4],
-                       kernel_size=4,
+                       num_channels=[4, 6, 8, 12],
+                       kernel_size=3,
                        dropout=0.5)
 
     y = model11(x)

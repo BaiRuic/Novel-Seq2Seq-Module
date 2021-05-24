@@ -1,18 +1,18 @@
-from sklearn.ensemble import GradientBoostingRegressor
+from sklearn import svm
 import numpy as np
 from prepare_data import prepare_data
 from sklearn.model_selection import RandomizedSearchCV
 
 # 定义超参数
 HyperParams = {'datapath':'..\\prepare_data\\data',      # 数据集路径
-               'datafile': 'AT',                         # 数据集文件
-               'split_ratio':[0.3, 0.05, 0.05],         # 数据集分割比例
+               'datafile': 'DE',                         # 数据集文件
+               'split_ratio':[0.2, 0.05, 0.05],         # 数据集分割比例
                "features": 3,
-               "input_seqlen": 24,
+               "input_seqlen": 12,
                "pred_seqlen": 6
                }
 # 保存模型指标的文件名
-filename = f"GB_{HyperParams['datafile']}-{HyperParams['input_seqlen']} to {HyperParams['pred_seqlen']}"
+filename = f"SVR_{HyperParams['datafile']}-{HyperParams['input_seqlen']} to {HyperParams['pred_seqlen']}"
 
 # 构建多步预测模型
 def multi_step_pred(model, input_timestep, pred_horizion, test_ip):
@@ -30,7 +30,6 @@ def multi_step_pred(model, input_timestep, pred_horizion, test_ip):
     return np.hstack(results)  # [samples, timesteps]
 
 
-# 模型评估指标类
 # 构建评估模型的类
 class MyMetrics:
     def __init__(self, y_pred, y_true, un_std):
@@ -83,17 +82,17 @@ def main():
 
     # 建立模型 模型参数由网格搜索得到
     print('Training model')
-    GB_grid = {
-        'n_estimators': [100, 500],
-        'learning_rate': [0.1, 0.05, 0.02],
-        'max_depth': [4],
-        'min_samples_leaf': [3],
-        'max_features': [1.0]
-    }
-    GB = GradientBoostingRegressor()
-    GB_search = RandomizedSearchCV(GB, GB_grid, cv=3)
-    GB_search.fit(X=train_ip, y=train_op)    # 选择最佳模型
-    model = GB_search.best_estimator_
+    kernel = ['poly', 'sigmoid', 'rbf']
+    C = [0.01, 0.1, 1, 10]
+    gamma = [0.01, 0.1, 1]
+    epsilon = [0.01, 0.1, 1]
+    shrinking = [True, False]
+    svr_grid = {'kernel': kernel, 'C': C, 'gamma': gamma, 'epsilon': epsilon, 'shrinking': shrinking}
+    SVR = svm.SVR()
+    svr_search = RandomizedSearchCV(SVR, svr_grid, cv=3)
+    svr_search.fit(X=train_ip, y=train_op)
+    # 选择最佳模型
+    model = svr_search.best_estimator_
 
     # 在测试集上多步预测
     print("Forecasting")
@@ -102,7 +101,6 @@ def main():
     # 评估模型
     print("Evaluating model")
     my_metrics = MyMetrics(y_hat, test_op, Data)
-
     my_metrics.print_metrics()
 
     # 将模型指标保存下来
@@ -117,5 +115,4 @@ if __name__ == "__main__":
             print(f"The {key} is:{values}.")
     else:
         main()
-
 

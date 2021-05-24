@@ -24,10 +24,10 @@ class LstmEncoder(nn.Module):
         '''
         param:
             inputs [batch_size, time_steps, features]
-                    function： 作为编码器的输入
+                    function： as the input of encoder
         return:
             hidden [1, batch_size, hidden_size]
-                    function: 作为编码器的输出，只包含LSTM的最后状态
+                    function: as the output of the encoder, which only include the last state of LSTM
             cell: [1, batch_size, hidden_size]
         '''
         output, (hidden, cell) = self.lstm(inputs)
@@ -106,10 +106,10 @@ class Seq2Seq(nn.Module):
             decoder_input = out
 
         # 将列表forecast_outputs 转换为tensor
-        forecast_outputs = torch.cat(forecast_outputs, dim=1)  # [batch_size, seq_len=estimate_seqlen, 1]
+        forecast_outputs = torch.cat(forecast_outputs, dim=1)  # [batch_size, seq_len=forecast_seqlen, 1]
 
         # 提取输入数据中的 需要预测变量数据 如负载预测中，提取负载数据。剔除温度数据
-        input_main = inputs[:, :, 0].unsqueeze(dim=2)  # [batch_size, seq_len, features=1]
+        # input_main = inputs[:, :, 0].unsqueeze(dim=2)  # [batch_size, seq_len, features=1]
         return forecast_outputs
 
 

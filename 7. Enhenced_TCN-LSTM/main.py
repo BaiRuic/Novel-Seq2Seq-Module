@@ -5,26 +5,58 @@ import numpy as np
 import random
 import os
 from prepare_data import prepare_data
-from model import seq2seq
+from model import stack
 from alive_progress import alive_bar
 import matplotlib.pyplot as plt
 
 # 定义超参数
 HyperParams = {'datapath':'..\\prepare_data\\data',      # 数据集路径
-               'datafile': 'CH',                         # 数据集文件
-               'split_ratio':[0.8, 0.1, 0.1],         # 数据集分割比例
-               "batch_size": 2560,
+               'datafile': 'NL',                         # 数据集文件
+               'split_ratio':[0.2, 0.1, 0.1],         # 数据集分割比例
+               "batch_size": 5120,
                "N_EPOCHS": 50,
                'lr': 5e-2,
                "features": 3,
-               "input_seqlen": 24,
-               "predict_seqlen": 3
+               "input_seqlen": 12,
+               "predict_seqlen":24
                }
 
 
 DEVICE = torch.device('cuda' if torch.cuda.is_available else 'cpu')
 torch.set_default_tensor_type('torch.DoubleTensor')
 path = os.getcwd()
+
+
+# 构建评估模型的类
+class MyMetrics:
+    def __init__(self, y_pred, y_true, un_std):
+        '''
+        y_hat.shape[samples, pred_horizion]
+        un_std : 类 DataPrepare 的实例 ，计算mape的时候需要反归一化
+        '''
+        self.un_std = un_std
+        self.y_pred = y_pred
+        self.y_true = y_true
+        self.metrics = {}
+        self.mse()
+        self.mape()
+        self.smape()
+
+    def mse(self):
+        self.metrics['mse'] = np.mean((self.y_pred - self.y_true) ** 2)
+
+    def mape(self):
+        y_pred = self.un_std.un_standardize(x=self.y_pred)
+        y_true = self.un_std.un_standardize(x=self.y_true)
+        self.metrics['mape'] = np.mean(np.abs((y_pred - y_true) / (y_true))) * 100
+
+    def smape(self):
+        self.metrics['smape'] = 2.0 * np.mean(
+            np.abs(self.y_pred - self.y_true) / (np.abs(self.y_pred) + np.abs(self.y_true))) * 100
+
+    def print_metrics(self):
+        for key, values in self.metrics.items():
+            print(f"The {key} is:{values}.")
 
 
 class Train:
@@ -34,6 +66,7 @@ class Train:
         self.datapath = hyperparams['datapath']
         self.datafile = hyperparams['datafile']
         self.split_ratio = hyperparams['split_ratio']
+
         # 超参数
         self.N_EPOCHS = hyperparams['N_EPOCHS']
         self.lr = hyperparams['lr']
@@ -41,6 +74,13 @@ class Train:
         self.input_seqlen = hyperparams['input_seqlen']
         self.predict_seqlen = hyperparams['predict_seqlen']
         self.features = hyperparams['features']
+
+        # 准备数据实例
+        self.dataprepare = prepare_data.DataPrepare(datapath=self.datapath,
+                                                    datafile=self.datafile,
+                                                    input_steps=self.input_seqlen,
+                                                    pred_horizion=self.predict_seqlen,
+                                                    split_ratio=self.split_ratio)
 
         # 数据生成器
         self.train_generator = None
@@ -58,7 +98,6 @@ class Train:
 
         # 训练完成后的损失值
         self.mse = 0
-        self.mape = 0
 
         # 自动设置 seed
         self._setup_seed(20)
@@ -67,12 +106,8 @@ class Train:
 
     def _prepare_data(self):
         # tvt_data consist of (train_ip, train_op, valid_ip, valid_op, test_ip, test_op)
-        dataprepare = prepare_data.DataPrepare(datapath=self.datapath,
-                                               datafile=self.datafile,
-                                               input_steps=self.input_seqlen,
-                                               pred_horizion=self.predict_seqlen,
-                                               split_ratio=self.split_ratio)
-        tvt_data = dataprepare.prepare_data()
+
+        tvt_data = self.dataprepare.prepare_data()
 
         train_dataset = prepare_data.Datasets(tvt_data[0], tvt_data[1])
         valid_dataset = prepare_data.Datasets(tvt_data[2], tvt_data[3])
@@ -80,7 +115,7 @@ class Train:
 
         train_generator = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=self.batch_size, shuffle=False)
         valid_generator = torch.utils.data.DataLoader(dataset=valid_dataset, batch_size=self.batch_size, shuffle=False)
-        test_generator = torch.utils.data.DataLoader(dataset=test_dataset, batch_size=self.batch_size, shuffle=False)
+        test_generator = torch.utils.data.DataLoader(dataset=test_dataset, batch_size=2048, shuffle=False)
 
         self.train_generator = train_generator
         self.valid_generator = valid_generator
@@ -98,8 +133,7 @@ class Train:
         self.train_loss = torch.load(filename)['train_loss']
         self.valid_loss = torch.load(filename)['valid_loss']
         self.mse = torch.load(filename)['mse']
-        self.mape = torch.load(filename)['mape']
-
+        self.dataprepare = torch.load(filename)['dataprepare']
 
     def _train(self):
         """
@@ -117,21 +151,13 @@ class Train:
 
             self.optimizer.zero_grad()
             # 输入到模型的是[batch_size, seq_len, features],模型输出是[batch_size,predict_seqlen, 1]
-            output = self.model(x)  # stack模型输出有两部分，第一部分是预测，第二部分的估计
-
-            loss = self.loss_func(output.squeeze(dim=2), y)   # 将output [batch_size, predict_seqlen]
+            output, residual = self.model(x)
+            loss = self.loss_func(output.squeeze(dim=2), y) # + torch.mean(torch.abs(residual)) # output [batch_size, predict_seqlen]
             loss.backward()
             self.optimizer.step()
-
             epoch_loss += loss.item()
         # len(train_generator) 是 批次数量  即 样本总数/batch_size
         return epoch_loss / len(self.train_generator)
-
-    # 计算MAPE
-    def calcMAPE(self, pred, target, epsion=0.0000000):
-        # 最后统计的值需要 *100%
-        target += epsion
-        return torch.mean(torch.abs((target - pred) / target))
 
     def _evalute(self):
         '''
@@ -142,17 +168,14 @@ class Train:
         '''
         self.model.eval()
         epoch_loss = 0
-        epoch_mape_loss= 0
         for i, (x, y) in enumerate(self.test_generator):
             x = x.to(DEVICE)
             y = y.to(DEVICE)
             with torch.no_grad():
-                output = self.model(x)  # output [batch_size, predict_seqlen, 1]
+                output,_ = self.model(x)  # output [batch_size, predict_seqlen, 1]
                 loss = self.loss_func(output.squeeze(dim=2), y)  # 计算mse
-                mape_loss = self.calcMAPE(output.squeeze(dim=2), y) # 计算该批次的mape
                 epoch_loss += loss.item()
-                epoch_mape_loss += mape_loss.item()
-        return epoch_loss / len(self.test_generator), epoch_mape_loss/len(self.test_generator)
+        return epoch_loss / len(self.test_generator)
 
     def _epoch_time(self, start_time, end_time):
         '''
@@ -170,6 +193,7 @@ class Train:
         return elapsed_mins, elapsed_secs
 
     def _setup_seed(self, seed):
+        # 初始化随机种子
         torch.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
         np.random.seed(seed)
@@ -188,13 +212,11 @@ class Train:
 
                 # 训练评估
                 train_loss = self._train()
-                valid_loss, mape_loss = self._evalute()
+                valid_loss = self._evalute()
 
                 # 将 训练评估值保存起来
                 self.train_loss.append(train_loss)
                 self.valid_loss.append(valid_loss)
-                self.mape = mape_loss
-                self.mse = valid_loss
 
                 # 记录结束时间
                 end_time = time.time()
@@ -203,19 +225,20 @@ class Train:
 
                 # 保存最好的模型
                 if best_valid_loss > valid_loss:
-                    best_valid_loss = valid_loss
+                    best_valid_loss = valid_loss  # 更新最优值
+                    self.mse = valid_loss  # 更新最优值
                     my_state = {'model': self.model.state_dict(),
                                 "optimizer": self.optimizer.state_dict(),
                                 "train_loss": self.train_loss,
                                 "valid_loss": self.valid_loss,
-                                "mse":self.mse,
-                                "mape":self.mape}
+                                'dataprepare': self.dataprepare,
+                                "mse": self.mse, }
                     self.save_state(state=my_state)
 
                 # 打印该epoch训练信息
                 print(f'Epoch: {epoch + 1:02} | Time: {epoch_mins}m {epoch_secs}s')
-                print(f'\tTrain Loss: {train_loss:.4f}')
-                print(f'\t Val. Loss: {valid_loss:.4f}')
+                print(f'\tTrain MSE_Loss: {train_loss:.4f}')
+                print(f'\t Val. MSE_Loss: {valid_loss:.4f}')
 
                 # 更新进度条
                 bar()
@@ -270,12 +293,20 @@ class Train:
         plt.legend()
         plt.show()
 
-    def predict(self, inputs):
+    def predict(self):
+        '''
+        :return:  y_hay , y
+        '''
         self.model.eval()
-        inputs = inputs.to(DEVICE)
         with torch.no_grad():
-            output = self.model(inputs)  # output [batch_size, predict_seqlen, 1]
-        return output
+            for i, (x, y) in enumerate(self.test_generator):
+                x = x.to(DEVICE)  # [batch_size, seq_len, feature]
+                y = y.to(DEVICE)  # [batch_size, predict_seqlen]
+                y_hat, _ = self.model(x)  # y_hat [batch_size, predict_seqlen, 1]
+                y_hat = y_hat.squeeze(dim=2)
+                break  # 测试集批次为1024，只测试这1024个样本
+
+        return y_hat.cpu().numpy(), y.cpu().numpy()
 
 
 def main():
@@ -283,29 +314,28 @@ def main():
     load_model = False
 
     # 模型 优化器 损失函数
-    model = seq2seq.Seq2Seq(input_size=HyperParams['features'],
-                            hidden_size=6,
-                            input_seqlen=HyperParams['input_seqlen'],
-                            forecast_seqlen=HyperParams['predict_seqlen']).to(DEVICE)
-
-    '''
-    model = seq2seq.RNN_Seq2Seq(input_size=HyperParams['features'], 
-                                hidden_size=5, 
-                                predict_seqlen=HyperParams['predict_seqlen']).to(DEVICE)
-    '''
+    model = stack.Stack(input_size=HyperParams['features'],
+                        encoder_channels=[4, 6],
+                        input_seqlen=HyperParams['input_seqlen'],
+                        forecast_seqlen=HyperParams['predict_seqlen']).to(DEVICE)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=HyperParams['lr'])
     loss_func = torch.nn.MSELoss(reduction='mean')
+
     T = Train(hyperparams=HyperParams, model=model, optimizer=optimizer, loss_func=loss_func)
     if load_model:
         T.load_state()  # 加载之前训练好的模型
-        # T.train_model() # 再训练一次
+        T.train_model() # 再训练一次
     else:
         T.train_model()
+
+    # 评估模型
+    y_hat, y = T.predict()
+    mymetrics = MyMetrics(y_hat, y, T.dataprepare)
+    mymetrics.print_metrics()
     T.plot_loss()
-    T.show_example()
-    print(f"mape:{T.mape}, mse:{T.mse}")
+
 
 
 if __name__ == "__main__":
-    main()
+     main()
