@@ -11,8 +11,8 @@ import matplotlib.pyplot as plt
 
 # 定义超参数
 HyperParams = {'datapath':'..\\prepare_data\\data',      # 数据集路径
-               'datafile': 'NL',                         # 数据集文件
-               'split_ratio':[0.2, 0.1, 0.1],         # 数据集分割比例
+               'datafile': 'PL',                         # 数据集文件
+               'split_ratio':[0.3, 0.1, 0.1],         # 数据集分割比例
                "batch_size": 5120,
                "N_EPOCHS": 50,
                'lr': 5e-2,
