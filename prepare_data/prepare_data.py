@@ -157,5 +157,6 @@ if __name__ == '__main__':
     temp = Data.prepare_data()    # temp =  (train_ip, train_op, valid_ip, valid_op, test_ip, test_op)
     train_dataset = Datasets(temp[0], temp[1])   # 训练集生成器
     for x, y in train_dataset:
+        print(x,y)
         print(x.shape, y.shape)     # 每个样本的维度
         break
