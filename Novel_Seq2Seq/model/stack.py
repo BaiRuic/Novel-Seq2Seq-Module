@@ -7,6 +7,8 @@ Vector = List[int]
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else "cpu")
 
 
+
+
 class Stack(nn.Module):
     def __init__(self, input_size: int = 3,
                  encoder_channels: Vector = [4, 6],
