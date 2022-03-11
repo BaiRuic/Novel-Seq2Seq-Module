@@ -1,5 +1,5 @@
 import torch
-import torch.utils.data   # 如果不用这个就会出现pycharm不识别data的问题
+import torch.utils.data  
 import time
 import numpy as np
 import random

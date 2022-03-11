@@ -30,17 +30,7 @@ class Stack(nn.Module):
                                   encoder_num_channels=self.encoder_channels,
                                   forecast_seqlen=self.forecast_seqlen,
                                   estimate_seqlen=self.estimate_seqlen)
-        '''
-        self.block_3 = BasicBlock(input_size=1,
-                                  encoder_num_channels=self.encoder_channels,
-                                  forecast_seqlen=self.forecast_seqlen,
-                                  estimate_seqlen=self.estimate_seqlen)
 
-        self.block_4 = BasicBlock(input_size=1,
-                                  encoder_num_channels=self.encoder_channels,
-                                  forecast_seqlen=self.forecast_seqlen,
-                                  estimate_seqlen=self.estimate_seqlen)
-        '''
 
     def forward(self, inputs):
         '''

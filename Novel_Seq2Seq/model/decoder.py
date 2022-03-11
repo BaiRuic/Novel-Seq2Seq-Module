@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+
 # 解码器
 class GruDecoder(nn.Module):
     def __init__(self, input_size, hidden_size, output_size=1):
