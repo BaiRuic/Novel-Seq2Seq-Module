@@ -1,4 +1,4 @@
-# Novel-Seq2Seq'
+# Novel-Seq2Seq
 
 A simplified demo of the paper "A Novel Sequence-to-Sequence based Deep Learning Model for Multi-step Load Forecasting".
 
