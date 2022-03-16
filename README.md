@@ -4,7 +4,7 @@ A simplified demo of the paper "A Novel Sequence-to-Sequence based Deep Learning
 
 ## Environment requirement
 
-The code is implemented on the Win10 system using Python 3.8.The libraries used are as follows
+The code is implemented on the Win10 system using Python 3.8. The libraries used are as follows
 
 ```angular2html
 torch 1.10.1
